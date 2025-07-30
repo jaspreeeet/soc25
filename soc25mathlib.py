@@ -75,14 +75,14 @@ def crt(a: list[int], n: list[int]) -> int:
         res+= x*mod_inv(x,n[i])*a[i]
     return res%N
 
-def is_quadratic_gidue_prime(a: int, p: int) -> int:
+def is_quadratic_residue_prime(a: int, p: int) -> int:
     # todo: return 1 if a is QR mod p, -1 if QNR mod p, 0 if not coprime to p
     a = pow(a,(p-1)//2,p)
     if (a==p-1) :
         return -1
     return a
 
-def is_quadratic_gidue_prime_power(a: int, p: int, e: int) -> int:
+def is_quadratic_residue_prime_power(a: int, p: int, e: int) -> int:
     # todo: same as above but modulo p^e instead of p
     #       assume p is prime, e >= 1
     # * it can be proved that for odd primes a is QR mod p^e iff  a is QR mod p
@@ -134,7 +134,7 @@ def is_prime(n: int) -> bool:
         return miller_rabin(n, random.sample(range(2, n-2), k=20))
 
 
-def miller_rabin(n: int, bases : list) -> bool:
+def miller_rabin(n: int, bases : list[int]) -> bool:
     if (n==2) :
         return True
     if (n==1 or n%2==0) :
@@ -162,16 +162,17 @@ def gen_prime(m : int) -> int:
     return p
 
 def gen_k_bit_prime(k: int) -> int:
-    lo = pow(2,k-1)
-    hi = pow(2,k)-1
-    p = random.randint(lo,hi)
-    while(not is_prime(p)) :
-        p = random.randint(lo,hi)
-    return p
+    g = random.getrandbits(k)
+    g = (g | ((1<<k-1) + 1))
+    if (not is_prime(g)):
+        g = random.getrandbits(k)
+        g = (g | ((1<<k-1) + 1))
+    return g
+        
     
 def factor(n: int) -> list[tuple[int, int]]:
     # first remove powers of 2
-    res = []
+    res: list[tuple[int, int]] = []
     if (n==1) :
         return res
     count = 0
@@ -235,7 +236,7 @@ def is_perfect_power(x: int) -> bool:
         
         
 class QuotientPolynomialRing:
-    def __init__(self, poly: list[int], pi_gen: list[int], zeroes=False, mod=None):
+    def __init__(self, poly: list[int], pi_gen: list[int], zeroes:int=False, mod:bool=False):
         #  pi_gen: non-empty, monic
             
         if (pi_gen[-1]!=1 or not any(pi_gen)) :
@@ -271,7 +272,7 @@ class QuotientPolynomialRing:
         return g
 
     @staticmethod
-    def Add(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing", mod=None) -> "QuotientPolynomialRing":
+    def Add(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing", mod:bool=False) -> "QuotientPolynomialRing":
         if (poly1.pi_generator!=poly2.pi_generator):
             raise Exception("Pi generators must match")
         p1 = poly1.element
@@ -287,7 +288,7 @@ class QuotientPolynomialRing:
         
     
     @staticmethod
-    def Sub(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing", mod=None) -> "QuotientPolynomialRing":
+    def Sub(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing", mod:bool=False) -> "QuotientPolynomialRing":
         if (poly1.pi_generator!=poly2.pi_generator):
             raise Exception("Pi generators must match")
         p1 = poly1.element
@@ -302,7 +303,7 @@ class QuotientPolynomialRing:
         return QuotientPolynomialRing(g,poly1.pi_generator,zeroes=True)
 
     @staticmethod
-    def Mul(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing", mod=None) -> "QuotientPolynomialRing":
+    def Mul(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing", mod:bool=False) -> "QuotientPolynomialRing":
         if (poly1.pi_generator!=poly2.pi_generator):
             raise Exception("Pi generators must match")
         p1 = poly1.element
@@ -319,7 +320,7 @@ class QuotientPolynomialRing:
         return ans
     
     @staticmethod
-    def simplify(k : list[int]):
+    def simplify(k : list[int]) -> None:
         if not any(k):
             return
         # print("simplify got:", k) 
@@ -329,14 +330,15 @@ class QuotientPolynomialRing:
                 val = abs(c)
                 break
         for c in k:
-            if c!=0 :
+            if c is not None and c!=0 and val is not None:
                 val = pair_gcd(val,c)
         for i in range(len(k)):
-            k[i]=int(k[i] // val)
+            if (val):
+                k[i]=int(k[i] // val)
     
     
     @staticmethod
-    def rem(e, g):
+    def rem(e : list[int], g : list[int]) -> tuple[list[int], list[int]]:
         g=g[:]
         e=e[:]
         while e and e[-1] == 0:
@@ -368,7 +370,7 @@ class QuotientPolynomialRing:
         return q, f  # quotient, remainder
     
     @staticmethod
-    def GCD(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing", mod=None) -> "QuotientPolynomialRing":
+    def GCD(poly1: "QuotientPolynomialRing", poly2: "QuotientPolynomialRing", mod:bool=False) -> "QuotientPolynomialRing":
         if poly1.pi_generator != poly2.pi_generator:
             raise Exception("Pi generators must match")
 
@@ -391,7 +393,7 @@ class QuotientPolynomialRing:
         return QuotientPolynomialRing(a, poly1.pi_generator)
     
     @staticmethod
-    def sub_plain(p1: list[int], p2: list[int], mod=None) -> list[int]:
+    def sub_plain(p1: list[int], p2: list[int],mod:bool=False) -> list[int]:
         res = []
         for i in range(max(len(p1), len(p2))):
             a = p1[i] if i < len(p1) else 0
@@ -404,7 +406,7 @@ class QuotientPolynomialRing:
         return res
 
     @staticmethod
-    def mul_plain(p1: list[int], p2: list[int], mod=None) -> list[int]:
+    def mul_plain(p1: list[int], p2: list[int],mod:bool=False) -> list[int]:
         if p1 == [0] or p2 == [0]: return [0]
         res = [0] * (len(p1) + len(p2) - 1)
         for i in range(len(p1)):
@@ -418,7 +420,7 @@ class QuotientPolynomialRing:
 
     
     @staticmethod
-    def extended_gcd(a: list[int], b: list[int]):
+    def extended_gcd(a: list[int], b: list[int]) -> tuple[list[int],list[int], list[int]]:
         a = a[:]
         b = b[:]
         while a and a[-1] == 0:
@@ -464,7 +466,7 @@ class QuotientPolynomialRing:
 
 
     @staticmethod
-    def Inv(poly: "QuotientPolynomialRing", mod=None) -> "QuotientPolynomialRing":
+    def Inv(poly: "QuotientPolynomialRing", mod:bool=False) -> "QuotientPolynomialRing":
         f = poly.element
         g = poly.pi_generator
         target_len = len(f)
@@ -498,37 +500,263 @@ def findr(n: int) -> int:
                 break
         if flag:
             return r
-        r += 1   
+        r += 1
     
-def aks_test(n: int) -> bool:
+    
+# ! assignment 3 starts here <3 sorry for ghosting u nilabha
+    
+def get_generator(p : int) -> int:
+    if (p==2):
+        return 1
+    phi = p - 1
+    q = factor(phi)
+    g = 2
+    while True:
+        if not any(pow(g,phi//k,p)==1 for k,_ in q):
+            return g
+        g+=1
+        
+def legendre_symbol(a: int, p: int) -> int: 
+    a%=p
+    return is_quadratic_residue_prime(a,p)
+    
+def jacobi_symbol(a: int, n: int) -> int: 
+    if (n%2==0):
+        raise Exception("hey why is n even?!?!?!?!?! uncle shoup will hunt u down")
+    if (pair_gcd(a,n)!=1):
+        return 0
+    a%=n
+    ans = 1
+    q = factor(n)
+    for b,c in q:
+        if (c%2==0) :
+            continue
+        ans*=legendre_symbol(a,b)
+    return ans
 
-    # step 0: obvious bail out
-    if n <= 1:
-        return False
+def order(a: int, n: int) -> int: 
+    k = factor(n-1)
+    r = n-1
+    for i,j in k:
+        for _ in range(j):
+            if (pow(a,r//i,n)==1):
+                r//=i
+            else :
+                break
+    return r
+        
+def discrete_log(x: int, g: int, p: int) -> int:
+    if (x==1):
+        return 0
+    
+    q = order(g,p)
+    
+    m = floor_sqrt(q) + 1
+    
+    bby = {}
+    curr = 1
+    
+    for _ in range(m):
+        bby[curr] = _
+        curr = (curr * g)           %               p
+        
+    # it's called free will
+    
+    inv = mod_inv(curr,p)
+    
+    curr = x
+    
+    for _ in range(m):
+        if curr in bby:
+            return m*_ + bby[curr]
+        curr = ( curr * inv )               %                p
+        
+    #strawberry mango forklift
+    raise Exception("thy input is wrongeth me is shooketh") # i hope mypy will shut up now
 
-    # step 1: check for perfect power
-    if is_perfect_power(n):
-        return False
-
-    # step 2: find r
-    r = findr(n)
-
-    # step 3: check gcds
-    for a in range(2, r + 1):
-        g = pair_gcd(a, n)
-        if 1 < g < n:
-            return False
-
-    # step 4: small n check
-    if n <= r:
+def is_smooth(m: int, y: int) -> bool:
+    # i wrote an apology to is_smooth for not using it in probabilistic_factor but then i thought i'm being too corny i'll have coffee and brb
+    if (m==1):
         return True
-    
-    #sorry nilabha i tried 
-    # but aks started taking 80gb of ram on my 16 gb machine and i couldnt have enough coffee to fix it but i will try after the last assignment till then i hope luck is on my side and miller-rabin sails my ship because it is trusted enough to be used for encryption
-    # i hope u find it in ur heart to forgive me
-    
-    if (is_prime(n)) :
+    k = factor(m)
+    a,_ = k[-1]
+    if ( a <= y ) :
         return True
+    else :
+        return False
+    
+def rho(n : int) -> int:
+    if (not n&1):
+        return 2
+    c = random.randint(1,n-1)
+    while c==2 : 
+        c = random.randint(1,n-1)
+    x = random.randint(1,n-1)
+    y = x
+    def f(x : int) -> int:
+        return (x*x+c)%n
+
+    while True:
+        # evil
+        x = f(x)
+        y = f(f(y))
+        d = gcd(abs(x - y), n)
+        if 1 < d < n:
+                return d
+        if d==n :
+            c = random.randint(1,n-1)
+            while c==2 : 
+                c = random.randint(1,n-1)
+            x = random.randint(1,n-1)
+            y = x
+            
+def factorize(n: int) -> list[int]:
+    if n==1:
+        return []
+    if (is_prime(n)):
+        return [n]
+    d = rho(n)
+    # cnt = 0
+    # while (n%d) :
+    #     cnt+=1
+    #     n//=d
+    return factorize(d) + factorize(n//d)
+            
+    
+def probabilistic_factor(n: int) -> list[tuple[int, int]]:
+    if (n==1):
+        return []
+    if (is_prime(n)):
+        return [(n,1)]
+    
+    ans = factorize(n)
+    
+    res:dict[int,int] = {}
+    
+    for p in ans:
+        if p in res:
+            res[p]+=1
+        else:
+            res[p]=1
+    
+    result = []
+    for key in sorted(res):
+        result.append((key, res[key]))
+        
+    return result
+    
+    
+def modular_sqrt_prime(x: int, p: int) -> int : 
+    if (x%p==0):
+        return 0
+    if (p==2):
+        return x&1
+    if (is_quadratic_residue_prime(x,p)!=1):
+        raise Exception("alas, this x be false! for no square in all the realm of modulo p dost yield such a value. the root thou seekest is but a ghost — unseen, unfound, unborn.")
+    if (p%4==3):
+        res = pow(x,(p+1)//4,p)
+        # # i guess microwaves are the only ones having convection so me convention
+        # pls ignore the comment because i have commented it
+        return min(res, p-res)
+    
+    # we must now seeketh the sacred tonelli-shanks
+    
+    q = p - 1
+    s = 0 
+    while (q%2==0):
+        q//=2
+        s+=1
+        
+    z = 2
+    while (is_quadratic_residue_prime(z,p)==1):
+        z+=1
+        
+    m = s
+    c = pow(z,q,p)
+    t = pow(x,q,p) 
+    r = pow(x,(q+1)//2,p) 
+    upd = False
+    
+    if (t==0):
+        return 0
+    if (t==1):
+        return r
+    T_T = 1
+    
+    tmp = t
+    while T_T < m:
+        tmp = (tmp*tmp)           %               p
+        if (tmp==1):
+            UwU = pow(2,m-T_T-1)
+            b = pow(c,UwU,p)
+            m = T_T
+            c = b*b       %       p
+            t = (t*c)       %       p
+            r = (r*b)       %       p
+            upd = True
+            break
+        T_T+=1
+    
+    if (upd):
+        return min(r,p-r)
     else:
-        return False
+        raise Exception("alas, this x be false! for no square in all the realm of modulo p dost yield such a value. the root thou seekest is but a ghost — unseen, unfound, unborn.")
+
+def adhd(a: int, e: int) -> int: 
+    x = 1  # hello nilabha pls pass me brute force is all i have
+    mod = 8
+
+    mod = 1<<e
+    a = a % mod
+    x = 1
+    while True:
+        if (x * x) % mod == a:
+            return x
+        x+=2
     
+    
+def modular_sqrt_prime_power(x: int, p: int, e: int) -> int: 
+    if (e==1):
+        return modular_sqrt_prime(x,p)
+    if (x%p**e==0):
+        return 0
+    if (is_quadratic_residue_prime_power(x,p,e)!=1):
+        raise Exception("alas, this x be false! for no square in all the realm of modulo p^e dost yield such a value. the root thou seekest is but a ghost — unseen, unfound, unborn.")
+    if (p==2):
+        return adhd(x,e)
+    
+    # all from wiki ion make the rules it is 8:42 pm and im sleepy
+    
+    r = modular_sqrt_prime(x, p)
+    
+    pe = p
+    for oOoOoOoooOOOOooooOOOooo in range(1, e):
+        # dont mind me using my free will, i rarely do so (i'm autistic)
+        t = (r * r - x) // pe % p
+        inv = mod_inv(2*r,p)
+        deltaAirlines = (-t * inv) % p
+        r = r + deltaAirlines * pe
+        pe *= p
+
+    ans = r%pe
+    return min(ans,pe-ans)
+
+
+def modular_sqrt(x: int, n: int) -> int:
+    if (n==1):
+        return 0
+    if (is_prime(n)):
+        return modular_sqrt_prime(x,n)
+    guys = probabilistic_factor(n)
+    h = len(guys)
+    r = []
+    nums = []
+    for i in range(h):
+        pi, ei = guys[i]
+        r += [modular_sqrt_prime_power(x,pi,ei)]
+        nums += [pow(pi,ei)]
+        
+    ans = crt(r,nums)%n
+    return min(n-ans,ans)
+
+#idk why no work but good night
